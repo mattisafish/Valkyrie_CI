@@ -1,0 +1,43 @@
+<link rel="stylesheet" href="css/materialdesignicons.min.css" />
+<h1>Branches for ValkyrieRBXL</h1>
+
+<ul>
+    <%
+        local JSONModule    = require "cjson";
+        local LapisHTTP     = require "lapis.nginx.http";
+
+        local Branches      = JSONModule.decode(({LapisHTTP.simple{url = "https://api.github.com/repos/ValkyrieRBXL/ValkyrieFramework/branches", headers = {["User-Agent"] = "Valkyrie Lapis"}}})[1]);
+
+        for i = 1, #Branches do
+        %>
+
+        <li><%
+            local Hash      = Branches[i].commit.sha;
+            local LockFile  = io.open("locks/" .. Hash, "r");
+            if LockFile then
+                
+            %>
+                <i class="mdi mdi-clock"></i><%= Branches[i].name %>: Processing
+            <%
+            else
+                local LogFile = io.open("build_logs/" .. Hash .. ".log", "r");
+                if not LogFile then
+                %>
+                    <i class="mdi mdi-help"></i><%= Branches[i].name %>: Never built so far
+                <%
+                elseif LogFile:read "*a":match "\1" then
+                %>
+                    <i class="mdi mdi-close"></i><%= Branches[i].name %>: An error occurred
+                <%
+                else
+                %>
+                    <i class="mdi mdi-check"></i><%= Branches[i].name %>: Built successfully
+                <%
+                end
+        %></li>
+
+        <%
+            end
+        end
+    %>
+</ul>
