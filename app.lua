@@ -8,11 +8,13 @@ local JSONModule = require("cjson");
 local GitHubStatus = require("GitHubStatus");
 local RobloxStatus = require("RobloxStatus");
 local ApplyGitInformation = require("GitInfo");
+local LapisHTTP = require("lapis.nginx.http");
 
 Application:enable "etlua";
 
-Application:get("/", function()
-    return "Welcome to Lapis " .. require("lapis.version")
+Application:get("/", function(self)
+    self.Owner = "ValkyrieRBXL";
+    return {render = "branches"};
 end);
 
 local function AttemptBuild(RepoID, BranchID, BranchName)
@@ -60,7 +62,11 @@ end);
 
 local function ReactToWebhook(RepoID, BranchID, BranchName, CommitID, CommitMessage, CommitPusher)
     local BuildResult;
+    if io.open("locks/" .. CommitID, "r") then
+        return "This commit is currently being built!";
+    end
     GitHubStatus(CommitID, RepoID, "pending", "Currently building and upload your model");
+    io.open("locks/" .. CommitID, "w"):close();
 
     if BranchID:find("%.") or CommitID:find("%.") then
         return "Nice try. Very nice.";
@@ -75,6 +81,7 @@ local function ReactToWebhook(RepoID, BranchID, BranchName, CommitID, CommitMess
         local File = io.open("build_logs/" .. CommitID .. ".log", "w");
         File:write(Error);
         File:close();
+        ShellRun("rm", "locks/" .. CommitID);
         return {layout = false; render = "empty", content_type = "text/plain"; "ERROR: " .. Error};
     elseif BuildResult:find("\1") then
         local File = io.open("build_logs/" .. CommitID .. ".log", "w");
@@ -88,6 +95,7 @@ local function ReactToWebhook(RepoID, BranchID, BranchName, CommitID, CommitMess
         local ModelID = AttemptUpload(BranchID);
         GitHubStatus(CommitID, RepoID, "success", "The build succeeded", "https://gskw.dedyn.io:444/build_log/" .. CommitID);
     end
+    ShellRun("rm", "locks/" .. CommitID);
 
     return {layout = false; render = "empty"; content_type = "text/plain"; BuildResult};
 end
